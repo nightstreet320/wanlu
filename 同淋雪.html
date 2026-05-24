@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>同淋一场雪</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        /* 原有全部样式 (保持完整) */
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: auto; }
+        body {
+            width: 100vw; height: 100vh; overflow: hidden;
+            font-family: system-ui, 'Segoe UI', sans-serif;
+            position: relative;
+            background: #000;
+        }
+        .bg-source { display: none; }
+        #glCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        /* 全局按钮组 */
+        .left-top-buttons {
+            position: fixed; top: 20px; left: 20px; z-index: 20;
+            display: flex; gap: 12px;
+        }
+        .circle-btn {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 22px; color: white;
+            transition: 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .circle-btn:hover { transform: scale(1.05); background: rgba(0,0,0,0.7); }
+        .circle-btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(0.3);
+        }
+        body.fullscreen-controls-hidden .left-top-buttons,
+        body.fullscreen-controls-hidden .top-buttons { display: none; }
+        .top-buttons {
+            position: fixed; top: 20px; right: 20px; z-index: 20;
+            display: flex; gap: 12px;
+        }
+        .writing-container {
+            position: relative; z-index: 10; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            padding: 40px 20px; overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .writing-container::-webkit-scrollbar { display: none; }
+        .paper {
+            width: 90%; max-width: 1100px; min-height: 65%; max-height: none;
+            background-color: rgba(255,255,255,0.05);
+            backdrop-filter: blur(12px);
+            border-radius: 16px; padding: 35px 40px;
+            display: flex; flex-direction: column;
+            transition: background-color 0.2s, backdrop-filter 0.2s;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        .editor {
+            flex: 1; outline: none; font-size: 18px; line-height: 1.9;
+            color: #ffffff;
+            background: transparent; white-space: pre-wrap;
+            font-family: 'Comic Neue', '华文行书', 'KaiTi', cursive;
+            margin-bottom: 20px;
+        }
+        .action-bar {
+            display: flex; justify-content: flex-end; gap: 20px; margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.2); padding-top: 16px;
+        }
+        .romantic-btn {
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.3); border-radius: 40px;
+            padding: 6px 20px; font-size: 14px; font-weight: 400;
+            color: rgba(255,255,255,0.8); cursor: pointer; transition: 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .romantic-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+        /* 雪境调节 */
+        .snow-control {
+            margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            padding-top: 12px;
+        }
+        .snow-toggle {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 40px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: 0.2s;
+        }
+        .snow-toggle:hover { background: rgba(255,255,255,0.2); color: white; }
+        .snow-sliders {
+            margin-top: 10px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            transition: 0.2s;
+        }
+        .snow-sliders.hidden { display: none; }
+        .slider-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            padding: 4px 12px;
+            border-radius: 40px;
+        }
+        .slider-item label { font-size: 12px; color: rgba(255,255,255,0.8); }
+        input[type=range] {
+            width: 140px;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: white;
+            margin-top: -4.5px;
+            cursor: pointer;
+            box-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+        .settings-bar { position: fixed; bottom: 25px; right: 25px; z-index: 20; }
+        .gear-btn { 
+            width: 56px; height: 56px; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(8px); border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 28px; 
+            color: white; border: 1px solid rgba(255,255,255,0.4); transition: 0.2s;
+        }
+        .gear-btn:hover { transform: scale(1.05); background: rgba(0,0,0,0.7); }
+        .settings-panel {
+            position: absolute; bottom: 75px; right: 0; width: 340px;
+            max-height: 70vh; overflow-y: auto; background: rgba(20,20,30,0.94);
+            backdrop-filter: blur(16px); border-radius: 24px; padding: 16px;
+            color: #eef; font-size: 12px; transition: 0.25s;
+        }
+        .settings-panel.hidden { opacity: 0; visibility: hidden; transform: scale(0.9); pointer-events: none; }
+        .setting-row { margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+        select, input, button {
+            background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.3);
+            color: white; border-radius: 12px; padding: 5px 8px; font-size: 12px;
+        }
+        .sound-item { margin-bottom: 12px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sound-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .sound-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+        .sound-controls button { font-size: 11px; padding: 4px 8px; }
+        .color-btn { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 1px solid white; display: inline-block; margin: 0 3px; }
+        .white-color { background: white; }
+        .black-color { background: black; }
+        .action-btn {
+            background: #2c3e55; text-align: center; padding: 7px; border-radius: 30px;
+            margin-top: 12px; cursor: pointer; font-size: 12px;
+        }
+        .action-btn:hover { background: #3e5a7c; }
+        hr { margin: 12px 0; border-color: rgba(255,255,255,0.2); }
+        .status-msg { font-size: 10px; text-align: center; margin-top: 8px; opacity: 0.7; }
+        .auto-text-label { display: flex; align-items: center; gap: 8px; }
+        .color-picker { width: 32px; height: 32px; border: none; border-radius: 50%; cursor: pointer; background: transparent; }
+        .tip-text { font-size: 10px; color: #aaa; margin-top: 6px; text-align: center; }
+        .random-tip { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); color: white; padding: 8px 16px; border-radius: 40px; font-size: 14px; z-index: 30; pointer-events: none; white-space: nowrap; transition: opacity 0.5s; }
+        /* 气泡样式安慰弹窗 */
+        .comfort-bubble {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 240, 245, 0.9);
+            backdrop-filter: blur(8px);
+            color: #4a2a2a;
+            padding: 12px 20px;
+            border-radius: 28px;
+            font-size: 14px;
+            max-width: 80%;
+            white-space: normal;
+            word-break: break-word;
+            font-style: normal;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.5);
+            z-index: 200;
+            transition: opacity 0.3s;
+            font-weight: 500;
+            line-height: 1.4;
+            text-align: center;
+        }
+        .comfort-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 30px;
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 12px solid rgba(255, 240, 245, 0.9);
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.05));
+        }
+        /* 文件管理器样式 */
+        .file-manager {
+            position: fixed; top: 80px; left: 20px; bottom: 20px;
+            width: 300px; background: rgba(20,20,30,0.95);
+            backdrop-filter: blur(16px); border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.2);
+            z-index: 25; display: flex; flex-direction: column;
+            transition: 0.2s; overflow: hidden;
+        }
+        .file-manager.hidden { display: none; }
+        .fm-header { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; align-items: center; }
+        .fm-header h3 { color: white; font-size: 16px; font-weight: 400; }
+        .fm-close { cursor: pointer; font-size: 20px; color: rgba(255,255,255,0.7); }
+        .fm-content { flex: 1; overflow-y: auto; padding: 8px; }
+        .tree-node { margin-left: 16px; }
+        .tree-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 8px; border-radius: 12px; cursor: pointer;
+            color: #eef; font-size: 13px; transition: 0.1s;
+        }
+        .tree-item:hover { background: rgba(255,255,255,0.1); }
+        .tree-item-icon { margin-right: 8px; font-size: 16px; }
+        .tree-item-name { flex: 1; word-break: break-word; }
+        .tree-item-actions { display: none; gap: 8px; }
+        .tree-item:hover .tree-item-actions { display: flex; }
+        .tree-item-actions span { cursor: pointer; font-size: 14px; opacity: 0.7; }
+        .tree-item-actions span:hover { opacity: 1; }
+        .fm-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.2); display: flex; gap: 8px; }
+        .fm-footer button { flex: 1; background: rgba(255,255,255,0.1); border: none; border-radius: 20px; padding: 6px; color: white; cursor: pointer; }
+        .fm-footer button:hover { background: rgba(255,255,255,0.2); }
+        .temp-rain-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        /* 情绪日历 */
+        .calendar-panel {
+            position: fixed; top: 80px; left: 20px; background: rgba(20,20,30,0.95);
+            backdrop-filter: blur(16px); border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.2);
+            width: 320px; padding: 16px; z-index: 30;
+            color: #eef; transition: 0.2s;
+        }
+        .calendar-panel.hidden { display: none; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .calendar-header button { background: rgba(255,255,255,0.1); border: none; border-radius: 20px; padding: 4px 12px; color: white; cursor: pointer; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .calendar-day { font-size: 12px; padding: 4px; border-radius: 20px; cursor: default; position: relative; }
+        .calendar-day .mood-symbol { display: block; font-size: 18px; line-height: 1.2; }
+        .calendar-day .day-num { font-size: 10px; opacity: 0.7; }
+        .weekday { font-size: 11px; opacity: 0.6; margin-bottom: 8px; }
+        .calendar-tip { font-size: 10px; text-align: center; margin-top: 12px; opacity: 0.6; }
+        /* 自定义保存弹窗（毛玻璃风格） */
+        .save-dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .save-dialog {
+            background: rgba(30,30,40,0.9);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 24px;
+            width: 360px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+            color: white;
+        }
+        .save-dialog h3 {
+            font-size: 20px;
+            font-weight: 400;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .save-dialog select, .save-dialog input {
+            width: 100%;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 40px;
+            padding: 8px 12px;
+            color: white;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .save-dialog .folder-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .save-dialog .folder-actions button {
+            flex: 1;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            border-radius: 40px;
+            padding: 6px;
+            color: white;
+            cursor: pointer;
+        }
+        .save-dialog .dialog-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        .save-dialog .dialog-buttons button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 40px;
+            padding: 8px 20px;
+            color: white;
+            cursor: pointer;
+        }
+        .save-dialog .dialog-buttons button.primary {
+            background: #4a6fa5;
+        }
+
+        /* ========== 开场动画样式 ========== */
+        .intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(0px);
+            transition: opacity 0.8s ease;
+        }
+        .intro-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: blur(16px) brightness(0.7);
+            transform: scale(1.05);
+            z-index: -1;
+        }
+        .intro-card {
+            background: rgba(20, 20, 30, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 56px;
+            padding: 40px 32px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            width: 85%;
+            max-width: 500px;
+            animation: gentleFloat 1.2s ease-out;
+        }
+        @keyframes gentleFloat {
+            0% { opacity: 0; transform: translateY(30px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .intro-question {
+            font-size: 36px;
+            font-weight: 400;
+            color: white;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            letter-spacing: 2px;
+            margin-bottom: 40px;
+            font-family: 'Comic Neue', '华文行书', 'KaiTi', cursive;
+        }
+        .intro-buttons {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .intro-btn {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.5);
+            padding: 12px 28px;
+            border-radius: 60px;
+            font-size: 22px;
+            font-weight: 400;
+            color: white;
+            cursor: pointer;
+            transition: 0.25s;
+            min-width: 140px;
+            letter-spacing: 2px;
+            font-family: inherit;
+        }
+        .intro-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.03);
+        }
+        /* 开场时隐藏主界面所有交互元素 */
+        body:not(.app-loaded) .left-top-buttons,
+        body:not(.app-loaded) .top-buttons,
+        body:not(.app-loaded) .writing-container,
+        body:not(.app-loaded) .settings-bar,
+        body:not(.app-loaded) .file-manager,
+        body:not(.app-loaded) .calendar-panel,
+        body:not(.app-loaded) .snow-control,
+        body:not(.app-loaded) .gear-btn {
+            display: none;
+        }
+        /* 开场专用气泡 */
+        .intro-bubble {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 240, 245, 0.95);
+            backdrop-filter: blur(12px);
+            color: #4a2a2a;
+            padding: 14px 28px;
+            border-radius: 48px;
+            font-size: 16px;
+            max-width: 85%;
+            text-align: center;
+            z-index: 3000;
+            font-weight: 500;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== 开场动画 HTML ========== -->
+<div id="introOverlay" class="intro-overlay">
+    <div id="introBackdrop" class="intro-backdrop" style="background-image: url('https://i.ibb.co/zVkV3RTh/550c9632a903f7b401192fb783eddb67.jpg');"></div>
+    <div class="intro-card">
+        <div class="intro-question">陈欣璐今天开心吗？</div>
+        <div class="intro-buttons">
+            <button class="intro-btn" id="happyChoice">开心</button>
+            <button class="intro-btn" id="sadChoice">不开心</button>
+        </div>
+    </div>
+</div>
+
+<img id="bgTextureImg" class="bg-source" crossorigin="anonymous">
+<canvas id="glCanvas"></canvas>
+
+<!-- 原有所有界面元素 -->
+<div class="left-top-buttons">
+    <div class="circle-btn" id="calendarBtn">📅</div>
+    <div class="circle-btn" id="muteBtn" title="静音">🔊</div>
+    <div class="circle-btn" id="fullscreenBtn" title="全屏">⛶</div>
+    <div class="circle-btn" id="backBtn" title="返回之前的编辑">↩️</div>
+    <div class="circle-btn" id="folderBtn">📁</div>
+</div>
+
+<div id="fileManager" class="file-manager hidden">
+    <div class="fm-header"><h3>📄 文档库</h3><span class="fm-close" id="closeFM">✕</span></div>
+    <div class="fm-content" id="fmContent"></div>
+    <div class="fm-footer"><button id="newFolderBtn">📁 新建文件夹</button><button id="newFileBtn">📝 新建文件</button></div>
+</div>
+
+<div id="calendarPanel" class="calendar-panel hidden">
+    <div class="calendar-header"><button id="prevMonthBtn">◀</button><span id="currentMonthYear"></span><button id="nextMonthBtn">▶</button></div>
+    <div class="calendar-grid weekdays"><div class="weekday">一</div><div class="weekday">二</div><div class="weekday">三</div><div class="weekday">四</div><div class="weekday">五</div><div class="weekday">六</div><div class="weekday">日</div></div>
+    <div id="calendarDays" class="calendar-grid"></div>
+    <div class="calendar-tip">❤️开心 💧难过 ⛈️伤心 ☁️平静</div>
+</div>
+
+<div class="top-buttons">
+    <div class="circle-btn" id="nextBgBtn" title="换背景">🖼️</div>
+    <div class="circle-btn" id="togglePanelBgBtn" title="切换面板底色">🎨</div>
+    <div class="circle-btn" id="randomPlayBtn" title="随机播放白噪音">🎲</div>
+</div>
+
+<div class="writing-container">
+    <div class="paper" id="paperPanel">
+        <div class="editor" id="editor" contenteditable="true"></div>
+        <div class="action-bar">
+            <button class="romantic-btn" id="releaseBtn">Release</button>
+            <button class="romantic-btn" id="saveBtn">Save</button>
+        </div>
+        <div class="snow-control">
+            <div class="snow-toggle" id="snowToggle">❄️ 雪境调节</div>
+            <div class="snow-sliders hidden" id="snowSliders">
+                <div class="slider-item"><label>雪量</label><input type="range" id="snowAmountSlider" min="0" max="1.2" step="0.01" value="0.8"></div>
+                <div class="slider-item"><label>雪速</label><input type="range" id="snowSpeedSlider" min="0" max="0.5" step="0.005" value="0.12"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="settings-bar">
+    <div class="gear-btn" id="gearBtn">⚙️</div>
+    <div class="settings-panel hidden" id="settingsPanel">
+        <div class="setting-row"><label>字体</label><select id="fontSelect">
+            <option value="'宋体', SimSun, serif">宋体</option>
+            <option value="'楷体', KaiTi, cursive">楷体</option>
+            <option value="'Comic Neue', '华文行书', 'KaiTi', cursive" selected>手写体</option>
+            <option value="Georgia, 'Times New Roman', serif">衬线体</option>
+        </select></div>
+        <div class="setting-row"><label>字号</label><select id="fontSizeSelect"><option>16</option><option>18</option><option selected>20</option><option>22</option><option>24</option></select></div>
+        <div class="setting-row"><label>字间距</label><input type="range" id="letterSpacing" min="0" max="5" step="0.5" value="0"></div>
+        <div class="setting-row"><label>行间距</label><input type="range" id="lineHeight" min="1.2" max="2.8" step="0.05" value="1.9"></div>
+        <div class="setting-row"><label>面板透明度</label><input type="range" id="panelOpacity" min="0" max="1" step="0.01" value="0.05"></div>
+        <div class="setting-row">
+            <label>文字颜色</label>
+            <div class="auto-text-label"><span>自动适应</span><input type="checkbox" id="autoTextColor" checked></div>
+            <div><div class="color-btn white-color" data-text="white"></div><div class="color-btn black-color" data-text="black"></div><input type="color" id="customColorPicker" class="color-picker" value="#ffffff"></div>
+        </div>
+        <div class="action-btn" id="uploadBgBtn">📁 上传背景</div>
+        <div class="tip-text">⭐ 建议使用 1920x1080 或更高分辨率的图片</div>
+        <input type="file" id="bgFileInput" accept="image/*" style="display:none;">
+        <hr>
+        <div><strong>白噪音</strong></div>
+        <div id="soundGroup"></div>
+        <div class="action-btn" id="randomPlayBtn2" style="margin-top:6px;">🎲 随机播放</div>
+        <div class="action-btn" id="exportTxtBtn">📄 导出 TXT</div>
+        <div class="action-btn" id="screenshotBtn">📸 全屏截图（干净）</div>
+        <div class="status-msg" id="saveStatus">✨ 自动保存已开启</div>
+    </div>
+</div>
+
+<script id="vertexShader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_texCoord;
+    void main() {
+        v_texCoord = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+    precision highp float;
+    uniform sampler2D u_texture;
+    uniform vec2 iResolution;
+    uniform float iTime;
+    uniform vec3 iMouse;
+    uniform float u_snowAmount;
+    uniform float u_snowSpeed;
+    varying vec2 v_texCoord;
+    void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+        vec2 UV = v_texCoord;
+        UV.y = 1.0 - UV.y;
+        float snow = 0.0;
+        for(int layer = 0; layer < 3; layer++) {
+            float layerScale = 1.0 + float(layer) * 1.2;
+            float downSpeed = u_snowSpeed * (0.8 + float(layer) * 0.3);
+            float timeOffset = iTime * downSpeed;
+            int flakesPerLayer = int(12.0 + 24.0 * u_snowAmount);
+            for(int i = 0; i < 24; i++) {
+                if(i >= flakesPerLayer) break;
+                float cellSize = 3.0 + float(i) * 1.5 / layerScale;
+                vec2 uv = fragCoord.xy / iResolution.x;
+                uv.x += 0.02 * sin(iTime * 0.5 + float(i)) * (2.0 / float(i+1));
+                uv.y += timeOffset * (0.5 / float(i+1));
+                vec2 gridPos = floor(uv * cellSize);
+                vec2 gridFrac = fract(uv * cellSize) - 0.5;
+                float randX = fract(sin(dot(gridPos, vec2(12.9898, 78.233))) * 43758.5453);
+                float randY = fract(sin(dot(gridPos, vec2(62.2364, 94.674))) * 62159.8432);
+                vec2 offset = vec2(randX - 0.5, randY - 0.5) * (0.7 / cellSize);
+                float d = length(gridFrac - offset);
+                float size = 0.25 / cellSize;
+                float intensity = clamp((size - d) / size, 0.0, 1.0);
+                float bright = (0.7 + 0.3 * sin(gridPos.x * 10.0 + gridPos.y * 7.0));
+                intensity *= bright;
+                intensity *= u_snowAmount * 1.2;
+                snow += intensity;
+            }
+        }
+        vec3 snowColor = vec3(0.9, 0.95, 1.0);
+        vec3 bgCol = texture2D(u_texture, UV).rgb;
+        vec3 col = mix(bgCol, snowColor, clamp(snow * 0.6, 0.0, 0.8));
+        float vignette = 1.0 - dot(UV - 0.5, UV - 0.5) * 0.4;
+        col *= vignette;
+        float bottomGrad = clamp(1.0 - UV.y * 0.8, 0.0, 0.5);
+        col += vec3(0.4, 0.6, 0.8) * bottomGrad * 0.2;
+        fragColor = vec4(col, 1.0);
+    }
+    void main() { mainImage(gl_FragColor, gl_FragCoord.xy); }
+</script>
+
+<script>
+    // ---------- 开场动画脚本 (最先执行) ----------
+    (function() {
+        const defaultBgUrl = "https://i.ibb.co/zVkV3RTh/550c9632a903f7b401192fb783eddb67.jpg";
+        const backdropDiv = document.getElementById('introBackdrop');
+        if (backdropDiv) backdropDiv.style.backgroundImage = `url(${defaultBgUrl})`;
+        
+        function showMessage(msg, duration = 2000) {
+            const bubble = document.createElement('div');
+            bubble.className = 'intro-bubble';
+            bubble.textContent = msg;
+            document.body.appendChild(bubble);
+            setTimeout(() => {
+                bubble.style.opacity = '0';
+                setTimeout(() => bubble.remove(), 500);
+            }, duration);
+        }
+        
+        function enterMainApp() {
+            const overlay = document.getElementById('introOverlay');
+            if (!overlay) return;
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.remove();
+                document.body.classList.add('app-loaded');
+            }, 600);
+        }
+        
+        const happyBtn = document.getElementById('happyChoice');
+        const sadBtn = document.getElementById('sadChoice');
+        if (happyBtn) {
+            happyBtn.addEventListener('click', () => {
+                showMessage('🌸 你开心我就开心 🌸', 1800);
+                setTimeout(enterMainApp, 600);
+            });
+        }
+        if (sadBtn) {
+            sadBtn.addEventListener('click', () => {
+                showMessage('🤍 抱抱你，那我们一起来淋雪吧。🤍', 2000);
+                setTimeout(enterMainApp, 600);
+            });
+        }
+        document.body.classList.remove('app-loaded');
+    })();
+
+    // ---------- 原有完整功能脚本 (保证所有按钮有效) ----------
+    (function(){
+        // ========== 背景与飘雪 ==========
+        const bgImages = [
+            "https://i.ibb.co/zVkV3RTh/550c9632a903f7b401192fb783eddb67.jpg",
+            "https://i.ibb.co/1JQNzTdN/cc3d21a894bdb37ccac1f0554fadee5f.jpg",
+            "https://i.ibb.co/rKBLvCfV/e6c72181689e8938bdfb95bf60838e31.jpg",
+            "https://i.ibb.co/zMJjxHw/20260129213602-75-2.jpg"
+        ];
+        let currentBgIndex = 0, currentBgUrl = bgImages[0];
+        const imgElement = document.getElementById('bgTextureImg');
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl');
+        if (gl) {
+            function createShader(gl, source, type) { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; }
+            const vsSource = document.getElementById('vertexShader').textContent, fsSource = document.getElementById('fragmentShader').textContent;
+            const vertexShader = createShader(gl, vsSource, gl.VERTEX_SHADER), fragmentShader = createShader(gl, fsSource, gl.FRAGMENT_SHADER);
+            const program = gl.createProgram(); gl.attachShader(program, vertexShader); gl.attachShader(program, fragmentShader); gl.linkProgram(program); gl.useProgram(program);
+            const positions = new Float32Array([-1,-1,1,-1,-1,1,1,1]); const posBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer); gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+            const a_position = gl.getAttribLocation(program, 'a_position'); gl.enableVertexAttribArray(a_position); gl.vertexAttribPointer(a_position, 2, gl.FLOAT, false, 0, 0);
+            const u_texture = gl.getUniformLocation(program, 'u_texture'), iResolution = gl.getUniformLocation(program, 'iResolution'), iTime = gl.getUniformLocation(program, 'iTime'), iMouse = gl.getUniformLocation(program, 'iMouse'), u_snowAmount = gl.getUniformLocation(program, 'u_snowAmount'), u_snowSpeed = gl.getUniformLocation(program, 'u_snowSpeed');
+            const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            function updateTextureFromImage(img) { gl.bindTexture(gl.TEXTURE_2D, texture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); }
+            imgElement.crossOrigin = 'Anonymous'; imgElement.onload = function() { updateTextureFromImage(imgElement); }; imgElement.src = currentBgUrl;
+            window.nextBg = function() { currentBgIndex = (currentBgIndex+1)%bgImages.length; currentBgUrl = bgImages[currentBgIndex]; imgElement.src = currentBgUrl; if(window.updateTextColorAuto) window.updateTextColorAuto(); };
+            document.getElementById('nextBgBtn').onclick = window.nextBg;
+            const snowAmountSlider = document.getElementById('snowAmountSlider'), snowSpeedSlider = document.getElementById('snowSpeedSlider');
+            function updateSnowUniforms() { gl.uniform1f(u_snowAmount, parseFloat(snowAmountSlider.value)); gl.uniform1f(u_snowSpeed, parseFloat(snowSpeedSlider.value)); }
+            snowAmountSlider.addEventListener('input', updateSnowUniforms); snowSpeedSlider.addEventListener('input', updateSnowUniforms);
+            document.getElementById('snowToggle').onclick = () => document.getElementById('snowSliders').classList.toggle('hidden');
+            let mouse = [0,0,0]; document.addEventListener('mousemove', (e) => { mouse[0]=e.clientX/window.innerWidth; mouse[1]=1.0-e.clientY/window.innerHeight; });
+            function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; gl.viewport(0,0,canvas.width,canvas.height); gl.uniform2f(iResolution,canvas.width,canvas.height); }
+            window.addEventListener('resize', resizeCanvas); resizeCanvas();
+            let startTime = performance.now()/1000; function render(now) { gl.uniform1f(iTime, (performance.now()/1000)-startTime); gl.uniform3f(iMouse, mouse[0], mouse[1], 0); gl.drawArrays(gl.TRIANGLE_STRIP,0,4); requestAnimationFrame(render); } render(); updateSnowUniforms();
+        }
+
+        // ========== 情感检测与关怀系统 ==========
+        const moodMapping = { "极端痛苦":"伤心","低落/悲伤":"难过","自我否定":"伤心","孤独/渴望爱":"难过","疲惫/无力":"平静","无意义/迷茫":"伤心","被忽视/人际关系伤害":"难过","愤怒/委屈":"伤心","伪装坚强":"难过" };
+        let moodLog = [];
+        function loadMoodLog() { const stored = localStorage.getItem('writing_moodLog'); if (stored) moodLog = JSON.parse(stored); else moodLog = []; }
+        function saveMoodLog() { localStorage.setItem('writing_moodLog', JSON.stringify(moodLog)); }
+        function addMoodEntry(category, level) {
+            const mood = moodMapping[category] || "平静";
+            const today = new Date().toISOString().slice(0,10);
+            const idx = moodLog.findIndex(e => e.dateStr === today);
+            if (idx !== -1) moodLog[idx].mood = mood;
+            else moodLog.push({ dateStr: today, mood: mood });
+            saveMoodLog(); renderCalendar();
+        }
+        const emotionalRules = [
+            { keywords: ["死","不活","累","撑","崩溃","烦","没救了","没意思","我要去死"], hidden: ["算了","无语","哭"], category:"极端痛苦", level:"重度", reply:"允许自己脆弱", extra:"眼泪和坚持一样伟大" },
+            { keywords: ["伤心","难过","不开心","心情差","郁闷","孤独","想哭","好痛","孤独"], hidden:["笑不出来","眼泪","心里空空的"], category:"低落/悲伤", level:"轻度", reply:"我看见你，我相信你，我支持你，我理解你，我爱你" },
+            { keywords: ["差劲","一无是处","做不好","没用","失败","废物","配不上","我感觉自己好没用","我是个傻逼","我是傻逼","我真是个傻逼","我好傻"], hidden:["我是不是很让人讨厌","不理我","添麻烦","满足期待"], category:"自我否定", level:"中度", reply: function(text){ 
+                if(text.includes("傻逼") || text.includes("蠢") || text.includes("笨")) 
+                    return "如果有人否定你，那我蹲下来抱抱你。";
+                else if(text.includes("骂")||text.includes("说")||text.includes("他们")) 
+                    return "相信相信的力量。"; 
+                else return "不许对自己苛刻！！！"; 
+            } },
+            { keywords: ["孤独","没人懂我","一个人","没人陪","谁来爱我"], hidden:["如果有人陪我就好了","没晚安","没消息","我好像总是自己一个人","谁来爱我"], category:"孤独/渴望爱", level:"中度", reply:"会有人爱你的。" },
+            { keywords: ["好累","不想动","没力气","疲惫","困"], hidden:["没事我可以的","只是有点累了","休息一下就好","没有力气去做任何事"], category:"疲惫/无力", level:"轻度", reply:"累了就停下来休息！" },
+            { keywords: ["没意义","不知道怎么办","迷茫","没有方向","未来好模糊"], hidden:["明天也不会有什么不同","就这样吧","日子像白开水","做什么都提不起兴趣"], category:"无意义/迷茫", level:"中度", reply:"你存在就是意义。" },
+            { keywords: ["对我坏","欺负我","被骂","被讨厌","不被关心","孤立","冷落","欺负"], hidden:["没主动找我","被忽视","不需要我"], category:"被忽视/人际关系伤害", level:"中度", reply:"请下定决心做最爱自己的人。" },
+            { keywords: ["不公平","凭什么","欺负人","太委屈","气得发抖"], hidden:["凭什么这样对我","受够了","为什么总是我"], category:"愤怒/委屈", level:"中度", reply:"可以脆弱，可以不完美。" },
+        ];
+        function detectEmotionSmart(text) {
+            const lower = text.toLowerCase();
+            for (let rule of emotionalRules) {
+                for (let kw of rule.keywords) if (lower.includes(kw)) return rule;
+                for (let hid of rule.hidden) if (lower.includes(hid.toLowerCase())) return rule;
+            }
+            if ((lower.includes("感觉") && (lower.includes("没用")||lower.includes("不行"))) || (lower.includes("没人") && lower.includes("在乎")) || (lower.includes("为什么") && lower.includes("总是我"))) return emotionalRules.find(r=>r.category==="自我否定");
+            if ((lower.includes("欺负")||lower.includes("对我")) && (lower.includes("他")||lower.includes("她"))) return emotionalRules.find(r=>r.category==="被忽视/人际关系伤害");
+            return null;
+        }
+        function getReply(rule, text) { return typeof rule.reply === 'function' ? rule.reply(text) : rule.reply; }
+        function showComfortMessage(reply, extra) {
+            const bubble = document.createElement('div');
+            bubble.className = 'comfort-bubble';
+            bubble.textContent = reply;
+            document.body.appendChild(bubble);
+            if (extra) {
+                setTimeout(() => {
+                    const extraBubble = document.createElement('div');
+                    extraBubble.className = 'comfort-bubble';
+                    extraBubble.textContent = extra;
+                    document.body.appendChild(extraBubble);
+                    setTimeout(() => { extraBubble.style.opacity = '0'; setTimeout(() => extraBubble.remove(), 500); }, 3500);
+                }, 2000);
+            }
+            setTimeout(() => { bubble.style.opacity = '0'; setTimeout(() => bubble.remove(), 500); }, 4000);
+        }
+        let emotionTimer = null;
+        function onEditorInput() {
+            if (emotionTimer) clearTimeout(emotionTimer);
+            emotionTimer = setTimeout(() => {
+                const content = editor.innerText.trim();
+                if (!content) return;
+                const rule = detectEmotionSmart(content);
+                if (rule) {
+                    const reply = getReply(rule, content);
+                    showComfortMessage(reply, rule.extra);
+                    addMoodEntry(rule.category, rule.level);
+                }
+            }, 800);
+        }
+        function checkAndCare() {
+            const content = editor.innerText.trim();
+            if (!content) return;
+            const rule = detectEmotionSmart(content);
+            if (rule) {
+                const reply = getReply(rule, content);
+                showComfortMessage(reply, rule.extra);
+                addMoodEntry(rule.category, rule.level);
+            } else {
+                addMoodEntry("平静", "平静");
+            }
+        }
+
+        // ========== 情绪日历 ==========
+        let currentYear = new Date().getFullYear(), currentMonth = new Date().getMonth();
+        function renderCalendar() {
+            const panel = document.getElementById('calendarPanel');
+            if (panel.classList.contains('hidden')) return;
+            const year = currentYear, month = currentMonth;
+            document.getElementById('currentMonthYear').innerText = `${year}年${month+1}月`;
+            const firstDay = new Date(year, month, 1);
+            let startIndex = firstDay.getDay() - 1; if (startIndex < 0) startIndex = 6;
+            const daysInMonth = new Date(year, month+1, 0).getDate();
+            const container = document.getElementById('calendarDays');
+            container.innerHTML = '';
+            for (let i = 0; i < startIndex; i++) container.appendChild(document.createElement('div'));
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const entry = moodLog.find(e => e.dateStr === dateStr);
+                let symbol = '○';
+                if (entry) {
+                    if (entry.mood === '开心') symbol = '❤️';
+                    else if (entry.mood === '难过') symbol = '💧';
+                    else if (entry.mood === '伤心') symbol = '⛈️';
+                    else if (entry.mood === '平静') symbol = '☁️';
+                }
+                const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day'; dayDiv.innerHTML = `<div class="mood-symbol">${symbol}</div><div class="day-num">${d}</div>`; dayDiv.title = entry ? `${dateStr}：${entry.mood}` : `${dateStr}：无记录`; container.appendChild(dayDiv);
+            }
+        }
+        function prevMonth() { if (currentMonth === 0) { currentMonth = 11; currentYear--; } else currentMonth--; renderCalendar(); }
+        function nextMonth() { if (currentMonth === 11) { currentMonth = 0; currentYear++; } else currentMonth++; renderCalendar(); }
+
+        // ========== 文件管理器 ==========
+        let fileTree = [], nextId = 1, currentOpenFileId = null;
+        let backupContent = null;
+        function initFileTree() {
+            const saved = localStorage.getItem('writing_fileTree');
+            if (saved) {
+                fileTree = JSON.parse(saved);
+                nextId = parseInt(localStorage.getItem('writing_nextId') || '1');
+            } else {
+                fileTree = [
+                    { id: 1, name: "我的笔记", type: "folder", parentId: null, children: [2] },
+                    { id: 2, name: "随笔", type: "file", parentId: 1, content: "今天心情不错。" }
+                ];
+                nextId = 3;
+                saveFileTree();
+            }
+        }
+        function saveFileTree() { localStorage.setItem('writing_fileTree', JSON.stringify(fileTree)); localStorage.setItem('writing_nextId', nextId); }
+        function findNodeById(id, nodes = fileTree) {
+            for (let node of nodes) {
+                if (node.id === id) return node;
+                if (node.type === 'folder' && node.children) {
+                    const found = findNodeById(id, node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+        function getParentNode(nodeId, parent = null, nodes = fileTree) {
+            for (let node of nodes) {
+                if (node.id === nodeId) return parent;
+                if (node.type === 'folder' && node.children) {
+                    const res = getParentNode(nodeId, node, node.children);
+                    if (res !== undefined) return res;
+                }
+            }
+            return null;
+        }
+        function addNode(parentId, name, type, content = "") {
+            const newNode = { id: nextId++, name, type, parentId };
+            if (type === 'file') newNode.content = content;
+            else newNode.children = [];
+            if (parentId === null) {
+                fileTree.push(newNode);
+            } else {
+                const parent = findNodeById(parentId);
+                if (parent && parent.type === 'folder') {
+                    parent.children.push(newNode.id);
+                    fileTree.push(newNode);
+                }
+            }
+            saveFileTree();
+            renderFileManager();
+            return newNode;
+        }
+        function deleteNode(nodeId) {
+            const node = findNodeById(nodeId);
+            if (!node) return;
+            const idsToDelete = new Set();
+            function collectIds(n) {
+                idsToDelete.add(n.id);
+                if (n.type === 'folder' && n.children) {
+                    for (let childId of n.children) {
+                        const child = findNodeById(childId);
+                        if (child) collectIds(child);
+                    }
+                }
+            }
+            collectIds(node);
+            const parent = getParentNode(nodeId);
+            if (parent) parent.children = parent.children.filter(id => id !== nodeId);
+            else {
+                const idx = fileTree.findIndex(n => n.id === nodeId);
+                if (idx !== -1) fileTree.splice(idx, 1);
+            }
+            for (let id of idsToDelete) {
+                const idx = fileTree.findIndex(n => n.id === id);
+                if (idx !== -1) fileTree.splice(idx, 1);
+            }
+            saveFileTree();
+            renderFileManager();
+            if (currentOpenFileId === nodeId) {
+                currentOpenFileId = null;
+                backupContent = null;
+                updateBackButtonState();
+            }
+        }
+        function renameNode(nodeId, newName) {
+            const node = findNodeById(nodeId);
+            if (node) { node.name = newName; saveFileTree(); renderFileManager(); }
+        }
+        function saveCurrentToFile(fileId) {
+            const node = findNodeById(fileId);
+            if (node && node.type === 'file') {
+                node.content = editor.innerHTML;
+                saveFileTree();
+                document.getElementById('saveStatus').innerText = '✅ 已保存到文档库';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+                if (currentOpenFileId === fileId) {
+                    backupContent = null;
+                    updateBackButtonState();
+                }
+            }
+        }
+        function loadFile(fileId) {
+            const node = findNodeById(fileId);
+            if (node && node.type === 'file') {
+                if (currentOpenFileId !== null && !backupContent) {
+                    backupContent = editor.innerHTML;
+                } else if (currentOpenFileId === null && !backupContent) {
+                    backupContent = editor.innerHTML;
+                }
+                editor.innerHTML = node.content || "";
+                currentOpenFileId = fileId;
+                document.getElementById('saveStatus').innerText = `📄 已加载: ${node.name}`;
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+                updateBackButtonState();
+            }
+        }
+        function revertToBackup() {
+            if (backupContent !== null) {
+                editor.innerHTML = backupContent;
+                currentOpenFileId = null;
+                document.getElementById('saveStatus').innerText = '↩️ 已恢复之前的编辑';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+                backupContent = null;
+                updateBackButtonState();
+            } else {
+                document.getElementById('saveStatus').innerText = '没有可恢复的内容';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+            }
+        }
+        function updateBackButtonState() {
+            const backBtn = document.getElementById('backBtn');
+            if (backupContent !== null) backBtn.classList.remove('disabled');
+            else backBtn.classList.add('disabled');
+        }
+        function renderFileManager() {
+            const container = document.getElementById('fmContent');
+            container.innerHTML = '';
+            function buildNodeHTML(node, lvl) {
+                const div = document.createElement('div');
+                div.className = 'tree-node';
+                div.style.marginLeft = `${lvl * 16}px`;
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'tree-item';
+                const icon = node.type === 'folder' ? '📁' : '📄';
+                itemDiv.innerHTML = `
+                    <span class="tree-item-icon">${icon}</span>
+                    <span class="tree-item-name">${escapeHtml(node.name)}</span>
+                    <div class="tree-item-actions">
+                        ${node.type === 'file' ? '<span class="save-file" title="保存当前内容到此文件">💾</span>' : ''}
+                        <span class="rename-node" title="重命名">✏️</span>
+                        <span class="delete-node" title="删除">🗑️</span>
+                    </div>
+                `;
+                if (node.type === 'file') {
+                    itemDiv.querySelector('.save-file')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        saveCurrentToFile(node.id);
+                    });
+                }
+                itemDiv.querySelector('.rename-node')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const newName = prompt('输入新名称:', node.name);
+                    if (newName && newName.trim()) renameNode(node.id, newName.trim());
+                });
+                itemDiv.querySelector('.delete-node')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`确定删除“${node.name}”吗？`)) deleteNode(node.id);
+                });
+                itemDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (node.type === 'file') loadFile(node.id);
+                });
+                div.appendChild(itemDiv);
+                if (node.type === 'folder' && node.children) {
+                    const children = node.children.map(cid => findNodeById(cid)).filter(Boolean);
+                    for (let child of children) {
+                        div.appendChild(buildNodeHTML(child, lvl + 1));
+                    }
+                }
+                return div;
+            }
+            for (let root of fileTree) {
+                container.appendChild(buildNodeHTML(root, 0));
+            }
+        }
+        function escapeHtml(str) { return str.replace(/[&<>]/g, function(m) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m]; }); }
+        function createFolder() { const name = prompt('文件夹名称:', '新建文件夹'); if (name && name.trim()) addNode(null, name.trim(), 'folder'); }
+        function createFile() { const name = prompt('文件名称:', '无标题'); if (name && name.trim()) { const newNode = addNode(null, name.trim(), 'file', ''); loadFile(newNode.id); } }
+        
+        initFileTree();
+        renderFileManager();
+        document.getElementById('newFolderBtn').onclick = createFolder;
+        document.getElementById('newFileBtn').onclick = createFile;
+        document.getElementById('folderBtn').onclick = () => document.getElementById('fileManager').classList.toggle('hidden');
+        document.getElementById('closeFM').onclick = () => document.getElementById('fileManager').classList.add('hidden');
+        const backBtn = document.getElementById('backBtn');
+        backBtn.onclick = () => revertToBackup();
+        updateBackButtonState();
+
+        // ========== 保存按钮：毛玻璃弹窗 ==========
+        function showSaveDialog() {
+            const existingOverlay = document.querySelector('.save-dialog-overlay');
+            if (existingOverlay) existingOverlay.remove();
+            const overlay = document.createElement('div');
+            overlay.className = 'save-dialog-overlay';
+            const folders = fileTree.filter(node => node.type === 'folder');
+            const folderOptions = folders.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+            overlay.innerHTML = `
+                <div class="save-dialog">
+                    <h3>保存到文档库</h3>
+                    <select id="saveFolderSelect">
+                        <option value="">根目录</option>
+                        ${folderOptions}
+                    </select>
+                    <div class="folder-actions">
+                        <button id="newFolderInDialog">📁 新建文件夹</button>
+                    </div>
+                    <input type="text" id="saveFileName" placeholder="文件标题" value="未命名">
+                    <div class="dialog-buttons">
+                        <button id="cancelSaveBtn">取消</button>
+                        <button id="confirmSaveBtn" class="primary">保存</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            const newFolderBtn = overlay.querySelector('#newFolderInDialog');
+            newFolderBtn.onclick = () => {
+                const newFolderName = prompt("请输入新文件夹名称：", "新建文件夹");
+                if (newFolderName && newFolderName.trim()) {
+                    const newFolder = addNode(null, newFolderName.trim(), 'folder');
+                    const select = overlay.querySelector('#saveFolderSelect');
+                    const option = document.createElement('option');
+                    option.value = newFolder.id;
+                    option.textContent = escapeHtml(newFolder.name);
+                    select.appendChild(option);
+                    option.selected = true;
+                }
+            };
+            overlay.querySelector('#cancelSaveBtn').onclick = () => overlay.remove();
+            overlay.querySelector('#confirmSaveBtn').onclick = () => {
+                const selectedFolderId = overlay.querySelector('#saveFolderSelect').value;
+                const fileName = overlay.querySelector('#saveFileName').value.trim();
+                if (!fileName) { alert("请输入文件标题"); return; }
+                let parentId = selectedFolderId === "" ? null : parseInt(selectedFolderId);
+                const siblings = parentId === null ? fileTree : findNodeById(parentId).children.map(cid => findNodeById(cid));
+                if (siblings.some(node => node.type === 'file' && node.name === fileName)) {
+                    if (!confirm(`文件“${fileName}”已存在，是否覆盖？`)) return;
+                    const existing = siblings.find(node => node.type === 'file' && node.name === fileName);
+                    saveCurrentToFile(existing.id);
+                    overlay.remove();
+                    backupContent = null;
+                    updateBackButtonState();
+                    return;
+                }
+                const newFile = addNode(parentId, fileName, 'file', editor.innerHTML);
+                loadFile(newFile.id);
+                overlay.remove();
+                backupContent = null;
+                updateBackButtonState();
+            };
+        }
+        document.getElementById('saveBtn').onclick = showSaveDialog;
+        
+        // ========== 静音按钮 ==========
+        let audioCtx = null, isMuted = false, activeSources = {}, currentPlaying = null, isPlaying = false, dbPromise = null;
+        const muteBtn = document.getElementById('muteBtn');
+        async function getAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return audioCtx;
+        }
+        async function mute() {
+            const ctx = await getAudioContext();
+            if (ctx.state === 'running') {
+                await ctx.suspend();
+                isMuted = true;
+                muteBtn.textContent = '🔇';
+            } else if (ctx.state === 'suspended') {
+                isMuted = true;
+                muteBtn.textContent = '🔇';
+            }
+        }
+        async function unmute() {
+            const ctx = await getAudioContext();
+            if (ctx.state === 'suspended') {
+                await ctx.resume();
+                isMuted = false;
+                muteBtn.textContent = '🔊';
+            } else if (ctx.state === 'running') {
+                isMuted = false;
+                muteBtn.textContent = '🔊';
+            }
+        }
+        muteBtn.onclick = async () => {
+            if (isMuted) await unmute();
+            else await mute();
+        };
+        async function ensureAudioResumed() {
+            const ctx = await getAudioContext();
+            if (isMuted) await unmute();
+            if (ctx.state === 'suspended') await ctx.resume();
+            return ctx;
+        }
+        
+        // 白噪音
+        function openDB() {
+            if (dbPromise) return dbPromise;
+            dbPromise = new Promise((resolve, reject) => {
+                const request = indexedDB.open('WritingNoiseDB', 2);
+                request.onupgradeneeded = (event) => { const db = event.target.result; if (!db.objectStoreNames.contains('audioBuffers')) db.createObjectStore('audioBuffers'); };
+                request.onsuccess = (event) => { resolve(event.target.result); };
+                request.onerror = (event) => { reject(event.target.error); };
+            });
+            return dbPromise;
+        }
+        async function saveAudioArrayBuffer(id, arrayBuffer) {
+            const db = await openDB();
+            const tx = db.transaction('audioBuffers', 'readwrite');
+            const store = tx.objectStore('audioBuffers');
+            store.put(arrayBuffer, id);
+            return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = (e) => reject(e.target.error); });
+        }
+        async function loadAudioArrayBuffer(id) {
+            const db = await openDB();
+            const tx = db.transaction('audioBuffers', 'readonly');
+            const store = tx.objectStore('audioBuffers');
+            return new Promise((resolve) => { const req = store.get(id); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve(null); });
+        }
+        async function getAllAudioIds() {
+            const db = await openDB();
+            const tx = db.transaction('audioBuffers', 'readonly');
+            const store = tx.objectStore('audioBuffers');
+            return new Promise((resolve) => { const req = store.getAllKeys(); req.onsuccess = () => resolve(req.result); req.onerror = () => resolve([]); });
+        }
+        async function initAudio() { return await ensureAudioResumed(); }
+        async function stopAllSounds() { for (let id in activeSources) { try { activeSources[id].stop(); } catch(e) {} } activeSources = {}; currentPlaying = null; isPlaying = false; }
+        async function playSound(soundId) {
+            if (isPlaying) await stopAllSounds();
+            const ctx = await ensureAudioResumed();
+            await stopAllSounds();
+            const arrayBuffer = await loadAudioArrayBuffer(soundId);
+            if (!arrayBuffer) { alert(`请先为“${soundId === 'rain' ? '雨声' : soundId === 'fire' ? '篝火声' : '绿皮火车'}”上传音频文件`); return; }
+            let audioBuffer; try { audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0)); } catch(e) { alert(`音频解码失败：${e.message}`); return; }
+            const source = ctx.createBufferSource(); source.buffer = audioBuffer; source.loop = true; const gain = ctx.createGain(); gain.gain.value = 0.5; source.connect(gain); gain.connect(ctx.destination); source.start(); activeSources[soundId] = source; currentPlaying = soundId; isPlaying = true;
+        }
+        async function playRandomAudio() {
+            const ids = await getAllAudioIds(); if (ids.length === 0) { alert("还没有上传任何白噪音，请先上传～"); return; }
+            const randomId = ids[Math.floor(Math.random() * ids.length)];
+            let displayName = randomId; if (randomId === 'rain') displayName = '雨声'; else if (randomId === 'fire') displayName = '篝火声'; else if (randomId === 'wave') displayName = '绿皮火车';
+            await playSound(randomId); document.getElementById('saveStatus').innerText = `🎲 正在播放：${displayName}`; setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 2000);
+        }
+        const soundTypes = [{ id: 'rain', name: '🌧️ 雨声' },{ id: 'fire', name: '🔥 篝火声' },{ id: 'wave', name: '🚂 绿皮火车' }];
+        const soundGroup = document.getElementById('soundGroup');
+        function renderSounds() {
+            soundGroup.innerHTML = '';
+            for (let s of soundTypes) {
+                const div = document.createElement('div'); div.className = 'sound-item';
+                div.innerHTML = `<div class="sound-header"><span class="sound-name">${s.name}</span><div><button class="play-sound">▶ 播放</button><button class="stop-sound">⏹️ 停止</button></div></div><div class="sound-controls"><button class="upload-sound">📁 上传音频</button></div>`;
+                const playBtn = div.querySelector('.play-sound'), stopBtn = div.querySelector('.stop-sound'), uploadBtn = div.querySelector('.upload-sound');
+                const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = 'audio/*'; fileInput.style.display = 'none';
+                uploadBtn.onclick = () => fileInput.click();
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0]; if (!file) return;
+                    uploadBtn.innerText = '⏳ 上传中...'; uploadBtn.disabled = true;
+                    try { const arrayBuffer = await file.arrayBuffer(); await saveAudioArrayBuffer(s.id, arrayBuffer); alert(`${s.name} 已保存，现在可以播放了。`); } catch(err) { alert(`上传失败：${err.message}`); } finally { uploadBtn.innerText = '📁 上传音频'; uploadBtn.disabled = false; }
+                };
+                playBtn.onclick = async () => { await playSound(s.id); };
+                stopBtn.onclick = () => { if (currentPlaying === s.id) stopAllSounds(); };
+                div.appendChild(fileInput); soundGroup.appendChild(div);
+            }
+        }
+        renderSounds();
+        document.getElementById('randomPlayBtn').onclick = playRandomAudio;
+        document.getElementById('randomPlayBtn2').onclick = playRandomAudio;
+        
+        // ========== 编辑器自动保存 ==========
+        const editor = document.getElementById('editor');
+        let autoSaveTimer;
+        function saveToLocal() { localStorage.setItem('writingContent', editor.innerHTML); document.getElementById('saveStatus').innerText = '✅ 已保存'; setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500); }
+        editor.addEventListener('input', () => { clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(saveToLocal, 1000); });
+        const saved = localStorage.getItem('writingContent'); if (saved) editor.innerHTML = saved;
+        editor.addEventListener('input', onEditorInput);
+        
+        // ========== 导出 TXT ==========
+        function exportTxt() {
+            const blob = new Blob([editor.innerText], {type:'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'writing_note.txt';
+            a.click();
+            URL.revokeObjectURL(blob);
+            document.getElementById('saveStatus').innerText = '已保存为文件';
+            setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 2000);
+        }
+        document.getElementById('exportTxtBtn').onclick = exportTxt;
+        
+        // ========== Release 水雾消散 ==========
+        let lastReleasedContent = "";
+        function createSteamEffectOverEditor() {
+            const rect = editor.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            const canvas = document.createElement('canvas');
+            canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;';
+            document.body.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const particles = [];
+            const particleCount = 420;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: rect.left + Math.random() * rect.width,
+                    y: rect.top + Math.random() * rect.height,
+                    radius: Math.random() * 3 + 1,
+                    alpha: 0.3 + Math.random() * 0.5,
+                    vx: (Math.random() - 0.5) * 1.2,
+                    vy: (Math.random() - 1.5) * 1.0 - 0.8,
+                    life: 0.8 + Math.random() * 0.6,
+                });
+            }
+            let animId;
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let allDead = true;
+                for (let p of particles) {
+                    p.x += p.vx; p.y += p.vy;
+                    p.life -= 0.008;
+                    if (p.life <= 0) continue;
+                    allDead = false;
+                    const a = p.alpha * p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius * (1 - p.life * 0.3), 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(210, 225, 240, ${a * 0.6})`;
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(p.x - 1, p.y - 1, p.radius * 1.5, 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${a * 0.3})`;
+                    ctx.fill();
+                }
+                if (allDead) { cancelAnimationFrame(animId); canvas.remove(); } else { animId = requestAnimationFrame(draw); }
+            }
+            draw();
+        }
+        function releaseContent() {
+            const content = editor.innerText.trim();
+            if (!content) { document.getElementById('saveStatus').innerText = '没有文字可以释出'; return; }
+            lastReleasedContent = editor.innerHTML;
+            localStorage.removeItem('writingContent');
+            createSteamEffectOverEditor();
+            setTimeout(() => { editor.innerText = ''; }, 50);
+            const msgDiv = document.createElement('div'); msgDiv.className = 'release-message'; msgDiv.innerText = '水汽蒸腾，文字化作雾霭'; document.body.appendChild(msgDiv); setTimeout(() => msgDiv.remove(), 2000);
+            document.getElementById('saveStatus').innerText = '已释出 · 文字随风散去'; setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 2500);
+            checkAndCare();
+        }
+        document.getElementById('releaseBtn').onclick = releaseContent;
+        
+        // ========== Ctrl+Z 撤销 ==========
+        function createRainEffectOnEditor() {
+            const rect = editor.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            const canvas = document.createElement('canvas');
+            canvas.className = 'temp-rain-canvas';
+            canvas.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;`;
+            document.body.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const drops = [];
+            const dropCount = 80;
+            for (let i = 0; i < dropCount; i++) {
+                drops.push({
+                    x: rect.left + Math.random() * rect.width,
+                    y: rect.top + Math.random() * rect.height,
+                    len: 8 + Math.random() * 15,
+                    speed: 4 + Math.random() * 8,
+                    opacity: 0.4 + Math.random() * 0.4,
+                });
+            }
+            let animId;
+            let startTime = performance.now();
+            function draw(now) {
+                const elapsed = (now - startTime) / 1000;
+                if (elapsed > 1.2) { cancelAnimationFrame(animId); canvas.remove(); return; }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (let d of drops) {
+                    ctx.beginPath();
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x - 2, d.y + d.len);
+                    ctx.lineTo(d.x + 2, d.y + d.len);
+                    ctx.fillStyle = `rgba(180, 210, 240, ${d.opacity * (1 - elapsed / 1.2)})`;
+                    ctx.fill();
+                    d.y += d.speed;
+                    if (d.y > rect.bottom + 20) {
+                        d.y = rect.top - 10;
+                        d.x = rect.left + Math.random() * rect.width;
+                    }
+                }
+                animId = requestAnimationFrame(draw);
+            }
+            animId = requestAnimationFrame(draw);
+        }
+        function undoRelease() {
+            if (lastReleasedContent && editor.innerText.trim() === "") {
+                editor.innerHTML = lastReleasedContent;
+                localStorage.setItem('writingContent', lastReleasedContent);
+                document.getElementById('saveStatus').innerText = '✨ 已恢复文字';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+                createRainEffectOnEditor();
+                lastReleasedContent = "";
+            } else {
+                document.getElementById('saveStatus').innerText = '没有可恢复的文字';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 1500);
+            }
+        }
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoRelease(); }
+        });
+        
+        // ========== 全屏 ==========
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        function toggleFullscreen() { if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(()=>document.body.classList.add('fullscreen-controls-hidden')).catch(e=>console.error(e)); else document.exitFullscreen().then(()=>document.body.classList.remove('fullscreen-controls-hidden')).catch(e=>console.error(e)); }
+        fullscreenBtn.onclick = toggleFullscreen;
+        document.addEventListener('fullscreenchange', () => { if(!document.fullscreenElement) document.body.classList.remove('fullscreen-controls-hidden'); else document.body.classList.add('fullscreen-controls-hidden'); });
+        
+        // ========== 全屏干净截图 ==========
+        async function takeCleanFullscreenScreenshot() {
+            const leftButtons = document.querySelector('.left-top-buttons');
+            const topButtons = document.querySelector('.top-buttons');
+            const settingsBar = document.querySelector('.settings-bar');
+            const snowControl = document.querySelector('.snow-control');
+            const fileManager = document.getElementById('fileManager');
+            const calendarPanel = document.getElementById('calendarPanel');
+            const wasFileManagerVisible = fileManager && !fileManager.classList.contains('hidden');
+            const wasCalendarVisible = calendarPanel && !calendarPanel.classList.contains('hidden');
+            
+            if (leftButtons) leftButtons.style.visibility = 'hidden';
+            if (topButtons) topButtons.style.visibility = 'hidden';
+            if (settingsBar) settingsBar.style.visibility = 'hidden';
+            if (snowControl) snowControl.style.visibility = 'hidden';
+            if (fileManager && !wasFileManagerVisible) fileManager.classList.add('hidden');
+            if (calendarPanel && !wasCalendarVisible) calendarPanel.classList.add('hidden');
+            
+            await new Promise(r => requestAnimationFrame(r));
+            
+            try {
+                const canvas = await html2canvas(document.body, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: null,
+                    logging: false,
+                    allowTaint: false
+                });
+                const link = document.createElement('a');
+                link.download = 'writing_clean_screenshot.png';
+                link.href = canvas.toDataURL();
+                link.click();
+                document.getElementById('saveStatus').innerText = '✅ 已生成全屏截图';
+                setTimeout(() => document.getElementById('saveStatus').innerText = '✨ 自动保存已开启', 2000);
+            } catch (err) {
+                console.error(err);
+                alert("截图失败：" + err.message);
+            } finally {
+                if (leftButtons) leftButtons.style.visibility = '';
+                if (topButtons) topButtons.style.visibility = '';
+                if (settingsBar) settingsBar.style.visibility = '';
+                if (snowControl) snowControl.style.visibility = '';
+                if (fileManager && !wasFileManagerVisible) fileManager.classList.add('hidden');
+                else if (fileManager && wasFileManagerVisible) fileManager.classList.remove('hidden');
+                if (calendarPanel && !wasCalendarVisible) calendarPanel.classList.add('hidden');
+                else if (calendarPanel && wasCalendarVisible) calendarPanel.classList.remove('hidden');
+            }
+        }
+        const screenshotBtn = document.getElementById('screenshotBtn');
+        screenshotBtn.onclick = takeCleanFullscreenScreenshot;
+        
+        // ========== 文字颜色自动适应 ==========
+        function getBrightnessFromUrl(url, callback) {
+            const img = new Image(); img.crossOrigin = 'Anonymous'; img.onload = function() { try { const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0); const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height); let r=0,g=0,b=0,count=0; const step = 10; for(let i=0; i<imageData.data.length; i+=4*step) { r+=imageData.data[i]; g+=imageData.data[i+1]; b+=imageData.data[i+2]; count++; } r/=count; g/=count; b/=count; const brightness = r*0.299 + g*0.587 + b*0.114; callback(brightness); } catch(e) { callback(128); } }; img.onerror = () => callback(128); img.src = url;
+        }
+        const autoTextCheckbox = document.getElementById('autoTextColor');
+        function updateTextColorAuto() { if (!autoTextCheckbox.checked) return; getBrightnessFromUrl(currentBgUrl, (brightness) => { editor.style.color = brightness > 128 ? '#1e1e2f' : '#ffffff'; }); }
+        window.updateTextColorAuto = updateTextColorAuto;
+        autoTextCheckbox.onchange = () => { if(autoTextCheckbox.checked) updateTextColorAuto(); };
+        const whiteTextBtn = document.querySelector('[data-text="white"]'), blackTextBtn = document.querySelector('[data-text="black"]'), customColorPicker = document.getElementById('customColorPicker');
+        whiteTextBtn.onclick = () => { autoTextCheckbox.checked = false; editor.style.color = '#ffffff'; };
+        blackTextBtn.onclick = () => { autoTextCheckbox.checked = false; editor.style.color = '#1e1e2f'; };
+        customColorPicker.oninput = (e) => { autoTextCheckbox.checked = false; editor.style.color = e.target.value; };
+        
+        // 面板透明度与底色
+        const paperPanel = document.getElementById('paperPanel');
+        const panelOpacitySlider = document.getElementById('panelOpacity');
+        const togglePanelBgBtn = document.getElementById('togglePanelBgBtn');
+        let panelBgWhite = true;
+        function updatePanelBg() {
+            let val = parseFloat(panelOpacitySlider.value); let r = panelBgWhite ? 255 : 0;
+            paperPanel.style.backgroundColor = `rgba(${r},${r},${r},${val})`;
+            if (val === 0) paperPanel.style.backdropFilter = 'none'; else paperPanel.style.backdropFilter = 'blur(12px)';
+        }
+        panelOpacitySlider.addEventListener('input', updatePanelBg);
+        togglePanelBgBtn.onclick = () => { panelBgWhite = !panelBgWhite; updatePanelBg(); };
+        updatePanelBg();
+        
+        // 字体设置
+        const fontSelect = document.getElementById('fontSelect'), fontSizeSelect = document.getElementById('fontSizeSelect'), letterSpacingSlider = document.getElementById('letterSpacing'), lineHeightSlider = document.getElementById('lineHeight');
+        editor.style.fontFamily = fontSelect.value; editor.style.fontSize = fontSizeSelect.value+'px'; editor.style.letterSpacing = letterSpacingSlider.value+'px'; editor.style.lineHeight = lineHeightSlider.value;
+        fontSelect.onchange = () => editor.style.fontFamily = fontSelect.value;
+        fontSizeSelect.onchange = () => editor.style.fontSize = fontSizeSelect.value+'px';
+        letterSpacingSlider.oninput = () => editor.style.letterSpacing = letterSpacingSlider.value+'px';
+        lineHeightSlider.oninput = () => editor.style.lineHeight = lineHeightSlider.value;
+        
+        function initUI() {
+            document.getElementById('calendarBtn').onclick = () => { const cal = document.getElementById('calendarPanel'); cal.classList.toggle('hidden'); if(!cal.classList.contains('hidden')) renderCalendar(); };
+            document.getElementById('prevMonthBtn').onclick = prevMonth; document.getElementById('nextMonthBtn').onclick = nextMonth;
+            const gearBtn = document.getElementById('gearBtn');
+            const settingsPanel = document.getElementById('settingsPanel');
+            gearBtn.onclick = (e) => { e.stopPropagation(); settingsPanel.classList.toggle('hidden'); };
+        }
+        loadMoodLog();
+        initUI();
+        
+        document.body.addEventListener('click', async () => { 
+            const ctx = await getAudioContext();
+            if (ctx.state === 'suspended' && !isMuted) {
+                await ctx.resume();
+            }
+        });
+        (async () => { const ids = await getAllAudioIds(); if (ids.length > 0) { const tipDiv = document.createElement('div'); tipDiv.className = 'random-tip'; tipDiv.innerText = '✨ 点击页面任意位置，自动播放随机白噪音 ✨'; document.body.appendChild(tipDiv); setTimeout(() => { tipDiv.style.opacity = '0'; setTimeout(() => tipDiv.remove(), 1000); }, 5000); const firstClickHandler = async () => { await playRandomAudio(); document.body.removeEventListener('click', firstClickHandler); document.body.removeEventListener('touchstart', firstClickHandler); }; document.body.addEventListener('click', firstClickHandler); document.body.addEventListener('touchstart', firstClickHandler); } })();
+    })();
+</script>
+</body>
+</html>
