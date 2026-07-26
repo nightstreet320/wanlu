@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>霓虹单词训练器 · 赛博朋克</title>
+
+    <!-- Google Fonts 科技感字体 (仅用于标题/按钮) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+        /* ===== 全局重置 & 基础 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Rajdhani', 'Orbitron', sans-serif;
+            background: #0a0a1a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== 赛博朋克背景 ===== */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                /* 网格线 */
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(255, 0, 200, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 50%, rgba(0, 200, 255, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 100%, rgba(100, 0, 255, 0.05) 0%, transparent 40%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 扫描线动画 */
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.2), transparent);
+            z-index: 999;
+            animation: scanMove 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scanMove {
+            0% {
+                top: 0;
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        /* ===== 主容器 ===== */
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1200px;
+            max-height: 900px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 40px;
+            background: rgba(10, 10, 30, 0.6);
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.05), inset 0 0 60px rgba(0, 240, 255, 0.02);
+            border-radius: 20px;
+        }
+
+        /* ===== 头部 ===== */
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.6rem;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #00f0ff, #ff00aa, #00f0ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerTitle 4s linear infinite;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+        }
+        @keyframes shimmerTitle {
+            0% {
+                background-position: 0% center;
+            }
+            100% {
+                background-position: 200% center;
+            }
+        }
+
+        .title .badge {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 400;
+            font-size: 0.7rem;
+            background: rgba(0, 240, 255, 0.15);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            padding: 2px 12px;
+            border-radius: 20px;
+            -webkit-text-fill-color: #00f0ff;
+            margin-left: 12px;
+            letter-spacing: 2px;
+        }
+
+        .progress-info {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            color: #00f0ff;
+            font-size: 1rem;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+            letter-spacing: 1px;
+            background: rgba(0, 240, 255, 0.05);
+            padding: 6px 18px;
+            border-radius: 30px;
+            border: 1px solid rgba(0, 240, 255, 0.15);
+        }
+        .progress-info .round-tag {
+            color: #ff00aa;
+            margin-right: 10px;
+        }
+
+        /* ===== 主区域 ===== */
+        .main {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            min-height: 0;
+            padding: 10px 0;
+        }
+
+        /* ===== 上传区域 ===== */
+        .upload-area {
+            width: 100%;
+            max-width: 600px;
+            padding: 60px 40px;
+            border: 2px dashed rgba(0, 240, 255, 0.3);
+            border-radius: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            background: rgba(0, 240, 255, 0.02);
+            position: relative;
+        }
+        .upload-area:hover {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.05);
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.05);
+        }
+        .upload-area.dragover {
+            border-color: #ff00aa;
+            background: rgba(255, 0, 170, 0.08);
+            box-shadow: 0 0 80px rgba(255, 0, 170, 0.1);
+        }
+        .upload-area .icon {
+            font-size: 4rem;
+            display: block;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 0 30px rgba(0, 240, 255, 0.2));
+        }
+        .upload-area h2 {
+            color: #00f0ff;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+        }
+        .upload-area p {
+            color: rgba(0, 240, 255, 0.5);
+            font-size: 1rem;
+            margin-top: 8px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+        .upload-area .file-name {
+            color: #ff00aa;
+            font-weight: 600;
+            margin-top: 12px;
+            font-size: 1rem;
+            text-shadow: 0 0 20px rgba(255, 0, 170, 0.2);
+        }
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        /* ===== 单词展示 ===== */
+        .word-display {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            animation: fadeInUp 0.5s ease;
+        }
+        .word-display.active {
+            display: flex;
+        }
+
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* 轮次标签 */
+        .round-label {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            color: #ff00aa;
+            font-size: 0.9rem;
+            letter-spacing: 4px;
+            text-shadow: 0 0 30px rgba(255, 0, 170, 0.3);
+            margin-bottom: 10px;
+            background: rgba(255, 0, 170, 0.08);
+            padding: 4px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 0, 170, 0.15);
+        }
+
+        /* ===== 单词主体 ===== */
+        .word-main {
+            font-family: 'Times New Roman', Times, Georgia, serif;
+            font-weight: 700;
+            font-size: clamp(5rem, 18vw, 12rem);
+            text-align: center;
+            letter-spacing: 4px;
+            color: #fff;
+            text-shadow:
+                0 0 10px rgba(0, 240, 255, 0.8),
+                0 0 30px rgba(0, 240, 255, 0.5),
+                0 0 60px rgba(0, 240, 255, 0.3),
+                0 0 100px rgba(255, 0, 170, 0.2),
+                0 0 150px rgba(255, 0, 170, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 10px 30px;
+            line-height: 1.2;
+            white-space: nowrap;
+            word-break: keep-all;
+            overflow: visible;
+            max-width: 90vw;
+        }
+
+        .word-main::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            width: 80%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00f0ff, #ff00aa, transparent);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+            opacity: 0.6;
+        }
+
+        .word-main.glitch {
+            animation: glitch 0.3s ease;
+        }
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+                text-shadow: 0 0 10px #00f0ff, 0 0 30px #ff00aa;
+            }
+            20% {
+                transform: translate(-4px, 2px);
+                text-shadow: -4px 0 #ff00aa, 4px 0 #00f0ff;
+            }
+            40% {
+                transform: translate(4px, -2px);
+                text-shadow: 4px 0 #ff00aa, -4px 0 #00f0ff;
+            }
+            60% {
+                transform: translate(-2px, 4px);
+                text-shadow: -2px 0 #00f0ff, 2px 0 #ff00aa;
+            }
+            80% {
+                transform: translate(2px, -4px);
+                text-shadow: 2px 0 #00f0ff, -2px 0 #ff00aa;
+            }
+            100% {
+                transform: translate(0);
+                text-shadow: 0 0 10px #00f0ff, 0 0 30px #ff00aa;
+            }
+        }
+
+        .word-counter {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 300;
+            color: rgba(0, 240, 255, 0.4);
+            font-size: 1rem;
+            margin-top: 16px;
+            letter-spacing: 3px;
+        }
+
+        /* ===== 底部操作区 ===== */
+        .actions {
+            width: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            padding-top: 30px;
+            flex-shrink: 0;
+            border-top: 1px solid rgba(0, 240, 255, 0.06);
+            margin-top: 10px;
+        }
+        .actions.active {
+            display: flex;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 240, 255, 0.2);
+            background: rgba(0, 240, 255, 0.03);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            padding: 2px;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), transparent, rgba(255, 0, 170, 0.2));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .action-btn:hover::before {
+            opacity: 1;
+        }
+
+        .action-btn .icon {
+            font-size: 2.8rem;
+            line-height: 1;
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.1));
+        }
+        .action-btn .label {
+            font-family: 'Orbitron', monospace;
+            font-weight: 400;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            margin-top: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.keep {
+            border-color: rgba(0, 240, 255, 0.3);
+        }
+        .action-btn.keep .label {
+            color: #00f0ff;
+        }
+        .action-btn.keep:hover {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.08);
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.15), inset 0 0 60px rgba(0, 240, 255, 0.05);
+            transform: scale(1.05);
+        }
+        .action-btn.keep:hover .icon {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 40px rgba(0, 240, 255, 0.4));
+        }
+        .action-btn.keep:active {
+            transform: scale(0.92);
+        }
+        .action-btn.keep .icon {
+            filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.2));
+        }
+
+        .action-btn.delete {
+            border-color: rgba(255, 0, 170, 0.3);
+        }
+        .action-btn.delete .label {
+            color: #ff00aa;
+        }
+        .action-btn.delete:hover {
+            border-color: #ff00aa;
+            background: rgba(255, 0, 170, 0.08);
+            box-shadow: 0 0 60px rgba(255, 0, 170, 0.15), inset 0 0 60px rgba(255, 0, 170, 0.05);
+            transform: scale(1.05);
+        }
+        .action-btn.delete:hover .icon {
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 40px rgba(255, 0, 170, 0.4));
+        }
+        .action-btn.delete:active {
+            transform: scale(0.92);
+        }
+        .action-btn.delete .icon {
+            filter: drop-shadow(0 0 20px rgba(255, 0, 170, 0.2));
+        }
+
+        .action-btn .key-hint {
+            position: absolute;
+            bottom: -18px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.55rem;
+            color: rgba(255, 255, 255, 0.15);
+            letter-spacing: 1px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ===== 统计栏 ===== */
+        .stats {
+            width: 100%;
+            display: none;
+            justify-content: center;
+            gap: 40px;
+            padding-top: 16px;
+            flex-shrink: 0;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 300;
+            color: rgba(0, 240, 255, 0.3);
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            border-top: 1px solid rgba(0, 240, 255, 0.04);
+            margin-top: 6px;
+        }
+        .stats.active {
+            display: flex;
+        }
+        .stats .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats .stat-item .num {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #00f0ff;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+        .stats .stat-item .num.pink {
+            color: #ff00aa;
+            text-shadow: 0 0 20px rgba(255, 0, 170, 0.2);
+        }
+
+        /* ===== 完成界面 ===== */
+        .complete {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            animation: fadeInUp 0.8s ease;
+        }
+        .complete.active {
+            display: flex;
+        }
+
+        .complete .trophy {
+            font-size: 5rem;
+            filter: drop-shadow(0 0 60px rgba(255, 215, 0, 0.3));
+            margin-bottom: 20px;
+            animation: pulseTrophy 2s ease-in-out infinite;
+        }
+        @keyframes pulseTrophy {
+            0%,
+            100% {
+                transform: scale(1) rotate(-2deg);
+            }
+            50% {
+                transform: scale(1.1) rotate(2deg);
+            }
+        }
+
+        .complete h1 {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 2.8rem;
+            background: linear-gradient(90deg, #00f0ff, #ff00aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 60px rgba(0, 240, 255, 0.2);
+            letter-spacing: 6px;
+        }
+        .complete .sub {
+            color: rgba(0, 240, 255, 0.5);
+            font-size: 1.2rem;
+            margin-top: 8px;
+            letter-spacing: 2px;
+            font-weight: 300;
+        }
+        .complete .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin: 30px 0 20px;
+            padding: 20px 40px;
+            background: rgba(0, 240, 255, 0.02);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 240, 255, 0.06);
+        }
+        .complete .stats-grid .item {
+            text-align: center;
+        }
+        .complete .stats-grid .item .number {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 2.2rem;
+            color: #00f0ff;
+            text-shadow: 0 0 30px rgba(0, 240, 255, 0.2);
+        }
+        .complete .stats-grid .item .number.pink {
+            color: #ff00aa;
+            text-shadow: 0 0 30px rgba(255, 0, 170, 0.2);
+        }
+        .complete .stats-grid .item .label {
+            color: rgba(0, 240, 255, 0.4);
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        .complete .btn-restart {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 14px 48px;
+            border: 2px solid #00f0ff;
+            background: rgba(0, 240, 255, 0.05);
+            color: #00f0ff;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            letter-spacing: 3px;
+            margin-top: 10px;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+        .complete .btn-restart:hover {
+            background: rgba(0, 240, 255, 0.12);
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.15);
+            transform: scale(1.03);
+        }
+        .complete .btn-restart:active {
+            transform: scale(0.95);
+        }
+
+        /* ===== 错误统计弹窗 (Modal) ===== */
+        .error-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .error-modal-overlay.active {
+            display: flex;
+        }
+
+        .error-modal {
+            background: rgba(10, 10, 30, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 24px;
+            max-width: 700px;
+            width: 100%;
+            max-height: 80vh;
+            padding: 30px 35px;
+            box-shadow: 0 0 80px rgba(0, 240, 255, 0.1), inset 0 0 80px rgba(0, 240, 255, 0.02);
+            overflow-y: auto;
+            position: relative;
+            animation: fadeInUp 0.4s ease;
+        }
+        .error-modal h2 {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 1.6rem;
+            color: #ff00aa;
+            text-shadow: 0 0 30px rgba(255, 0, 170, 0.3);
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .error-modal .subtitle {
+            color: rgba(0, 240, 255, 0.4);
+            font-size: 0.9rem;
+            text-align: center;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+        }
+        .error-modal .close-btn {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: rgba(0, 240, 255, 0.3);
+            font-size: 2rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            font-family: 'Orbitron', monospace;
+        }
+        .error-modal .close-btn:hover {
+            color: #ff00aa;
+        }
+
+        .error-section {
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.06);
+            padding-bottom: 16px;
+        }
+        .error-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .error-section .section-title {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #00f0ff;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .error-section .section-title .badge-count {
+            font-size: 0.8rem;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            padding: 0 12px;
+            border-radius: 30px;
+            color: #ff00aa;
+        }
+        .error-section .word-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            padding: 6px 0;
+        }
+        .error-section .word-item {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(0, 240, 255, 0.04);
+            padding: 2px 14px;
+            border-radius: 30px;
+            border: 1px solid rgba(0, 240, 255, 0.06);
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+        }
+        .error-section .word-item .error-count {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            color: #ff00aa;
+            margin-left: 6px;
+            background: rgba(255, 0, 170, 0.1);
+            padding: 0 6px;
+            border-radius: 12px;
+        }
+        .error-section .empty-message {
+            color: rgba(0, 240, 255, 0.2);
+            font-style: italic;
+            font-size: 1rem;
+            padding: 6px 0;
+        }
+
+        .error-modal .screenshot-hint {
+            text-align: center;
+            color: rgba(0, 240, 255, 0.25);
+            font-size: 0.8rem;
+            margin-top: 18px;
+            border-top: 1px solid rgba(0, 240, 255, 0.04);
+            padding-top: 14px;
+            letter-spacing: 2px;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                border-radius: 12px;
+                max-height: 100vh;
+            }
+            .title {
+                font-size: 1rem;
+                letter-spacing: 2px;
+            }
+            .title .badge {
+                font-size: 0.5rem;
+                padding: 1px 8px;
+                margin-left: 6px;
+            }
+            .progress-info {
+                font-size: 0.7rem;
+                padding: 4px 12px;
+            }
+            .word-main {
+                font-size: clamp(3rem, 12vw, 6rem);
+                letter-spacing: 3px;
+            }
+            .actions {
+                gap: 30px;
+                padding-top: 20px;
+            }
+            .action-btn {
+                width: 90px;
+                height: 90px;
+            }
+            .action-btn .icon {
+                font-size: 2rem;
+            }
+            .action-btn .label {
+                font-size: 0.55rem;
+            }
+            .action-btn .key-hint {
+                display: none;
+            }
+            .stats {
+                gap: 20px;
+                font-size: 0.7rem;
+                flex-wrap: wrap;
+            }
+            .upload-area {
+                padding: 40px 20px;
+            }
+            .upload-area h2 {
+                font-size: 1rem;
+            }
+            .complete h1 {
+                font-size: 1.8rem;
+            }
+            .complete .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                padding: 16px 20px;
+            }
+            .complete .stats-grid .item .number {
+                font-size: 1.6rem;
+            }
+            .error-modal {
+                padding: 20px;
+                max-width: 95vw;
+            }
+            .error-modal h2 {
+                font-size: 1.2rem;
+            }
+            .error-section .word-item {
+                font-size: 1rem;
+                padding: 2px 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 12px;
+                border-radius: 8px;
+            }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                padding-bottom: 12px;
+            }
+            .title {
+                font-size: 0.85rem;
+            }
+            .progress-info {
+                font-size: 0.6rem;
+                padding: 2px 10px;
+            }
+            .word-main {
+                font-size: clamp(2.4rem, 10vw, 4rem);
+                letter-spacing: 2px;
+            }
+            .action-btn {
+                width: 70px;
+                height: 70px;
+            }
+            .action-btn .icon {
+                font-size: 1.6rem;
+            }
+            .action-btn .label {
+                font-size: 0.45rem;
+                margin-top: 3px;
+            }
+            .actions {
+                gap: 20px;
+                padding-top: 14px;
+            }
+            .stats {
+                gap: 12px;
+                font-size: 0.6rem;
+                flex-wrap: wrap;
+                padding-top: 10px;
+            }
+            .upload-area {
+                padding: 30px 16px;
+            }
+            .upload-area .icon {
+                font-size: 2.5rem;
+            }
+            .upload-area h2 {
+                font-size: 0.85rem;
+            }
+            .complete h1 {
+                font-size: 1.4rem;
+            }
+            .complete .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                padding: 12px 16px;
+            }
+            .complete .stats-grid .item .number {
+                font-size: 1.2rem;
+            }
+            .complete .btn-restart {
+                font-size: 0.8rem;
+                padding: 10px 30px;
+            }
+            .error-modal {
+                padding: 16px;
+                max-width: 98vw;
+            }
+            .error-modal h2 {
+                font-size: 1rem;
+            }
+            .error-section .section-title {
+                font-size: 0.9rem;
+            }
+            .error-section .word-item {
+                font-size: 0.85rem;
+                padding: 1px 8px;
+            }
+        }
+
+        /* ===== 工具类 ===== */
+        .hidden {
+            display: none !important;
+        }
+        .flex-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 自定义滚动条 - 赛博朋克风格 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            background: rgba(0, 240, 255, 0.03);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #00f0ff, #ff00aa);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* 加载动画 */
+        .loader {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 240, 255, 0.1);
+            border-top-color: #00f0ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 10px auto;
+        }
+        .loader.active {
+            display: block;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 扫描线 -->
+    <div class="scanline"></div>
+
+    <!-- ===== 主容器 ===== -->
+    <div class="container" id="app">
+
+        <!-- ===== 头部 ===== -->
+        <header class="header">
+            <div class="title">
+                ⚡ NEON WORDS
+                <span class="badge">v2.0</span>
+            </div>
+            <div class="progress-info" id="progressInfo">
+                <span class="round-tag" id="roundTag">▶ ROUND 1</span>
+                <span id="progressText">0 / 0</span>
+            </div>
+        </header>
+
+        <!-- ===== 主区域 ===== -->
+        <main class="main">
+
+            <!-- 上传界面 -->
+            <div class="upload-area" id="uploadArea">
+                <span class="icon">📂</span>
+                <h2>UPLOAD WORD LIST</h2>
+                <p>拖拽或点击上传 .txt 文件 · 每行一个单词</p>
+                <div class="file-name" id="fileName"></div>
+                <div class="loader" id="loader"></div>
+                <input type="file" id="fileInput" accept=".txt,.csv" />
+            </div>
+
+            <!-- 单词展示 -->
+            <div class="word-display" id="wordDisplay">
+                <div class="round-label" id="roundLabel">◆ 第 1 轮复习</div>
+                <div class="word-main" id="wordMain">GLITCH</div>
+                <div class="word-counter" id="wordCounter">— 剩余 12 个 —</div>
+            </div>
+
+            <!-- 完成界面 -->
+            <div class="complete" id="completeScreen">
+                <div class="trophy">🏆</div>
+                <h1>ALL CLEAR</h1>
+                <div class="sub">所有单词已掌握 · 训练完成</div>
+                <div class="stats-grid" id="finalStats">
+                    <div class="item">
+                        <div class="number" id="finalTotal">0</div>
+                        <div class="label">总单词</div>
+                    </div>
+                    <div class="item">
+                        <div class="number pink" id="finalKept">0</div>
+                        <div class="label">已掌握</div>
+                    </div>
+                    <div class="item">
+                        <div class="number" id="finalRounds">0</div>
+                        <div class="label">复习轮数</div>
+                    </div>
+                </div>
+                <button class="btn-restart" id="btnRestart">⟳ 重新开始</button>
+            </div>
+        </main>
+
+        <!-- ===== 底部操作栏 ===== -->
+        <div class="actions" id="actions">
+            <!-- 保留按钮 -->
+            <button class="action-btn keep" id="btnKeep" title="保留 (←)">
+                <span class="icon">💎</span>
+                <span class="label">保 留</span>
+                <span class="key-hint">←</span>
+            </button>
+            <!-- 删除按钮 -->
+            <button class="action-btn delete" id="btnDelete" title="删除 (→)">
+                <span class="icon">🗑️</span>
+                <span class="label">删 除</span>
+                <span class="key-hint">→</span>
+            </button>
+        </div>
+
+        <!-- ===== 统计栏 ===== -->
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                💾 已掌握 <span class="num" id="statDeleted">0</span>
+            </div>
+            <div class="stat-item">
+                🔄 待复习 <span class="num pink" id="statReview">0</span>
+            </div>
+            <div class="stat-item">
+                📊 总单词 <span class="num" id="statTotal">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 错误统计弹窗 (Modal) ===== -->
+    <div class="error-modal-overlay" id="errorModal">
+        <div class="error-modal">
+            <button class="close-btn" id="modalClose">&times;</button>
+            <h2>📋 错误统计报告</h2>
+            <div class="subtitle">以下单词在复习中被多次保留（即答错），供截图参考</div>
+
+            <div class="error-section" id="sectionTwoPlus">
+                <div class="section-title">
+                    🔁 错了 2 次及以上
+                    <span class="badge-count" id="countTwo">0</span>
+                </div>
+                <div class="word-list" id="listTwo"></div>
+            </div>
+
+            <div class="error-section" id="sectionThreePlus">
+                <div class="section-title">
+                    ⚠️ 错了 3 次及以上
+                    <span class="badge-count" id="countThree">0</span>
+                </div>
+                <div class="word-list" id="listThree"></div>
+            </div>
+
+            <div class="screenshot-hint">🖼️ 可使用截图工具保存此列表</div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <script>
+        (function() {
+            'use strict';
+
+            // ===== DOM 引用 =====
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const fileName = document.getElementById('fileName');
+            const loader = document.getElementById('loader');
+
+            const wordDisplay = document.getElementById('wordDisplay');
+            const wordMain = document.getElementById('wordMain');
+            const wordCounter = document.getElementById('wordCounter');
+            const roundLabel = document.getElementById('roundLabel');
+
+            const actions = document.getElementById('actions');
+            const btnKeep = document.getElementById('btnKeep');
+            const btnDelete = document.getElementById('btnDelete');
+
+            const stats = document.getElementById('stats');
+            const statDeleted = document.getElementById('statDeleted');
+            const statReview = document.getElementById('statReview');
+            const statTotal = document.getElementById('statTotal');
+
+            const progressInfo = document.getElementById('progressInfo');
+            const progressText = document.getElementById('progressText');
+            const roundTag = document.getElementById('roundTag');
+
+            const completeScreen = document.getElementById('completeScreen');
+            const finalTotal = document.getElementById('finalTotal');
+            const finalKept = document.getElementById('finalKept');
+            const finalRounds = document.getElementById('finalRounds');
+            const btnRestart = document.getElementById('btnRestart');
+
+            // 模态框元素
+            const errorModal = document.getElementById('errorModal');
+            const modalClose = document.getElementById('modalClose');
+            const listTwo = document.getElementById('listTwo');
+            const listThree = document.getElementById('listThree');
+            const countTwo = document.getElementById('countTwo');
+            const countThree = document.getElementById('countThree');
+
+            // ===== 状态 =====
+            let allWords = []; // 当前轮次的单词列表 (对象数组 {word, errors})
+            let reviewWords = []; // 保留的单词（下一轮）(同样对象数组)
+            let currentIndex = 0;
+            let totalInitial = 0;
+            let deletedCount = 0; // 已删除数量（掌握）
+            let round = 1;
+            let isComplete = false;
+            let isProcessing = false;
+
+            // ===== 音效模块 =====
+            function playAppearSound() {
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 880;
+                    gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.08);
+                } catch (e) {
+                    // 静默处理
+                }
+            }
+
+            // ===== 工具 =====
+
+            // 解析文本文件：每行一个单词，返回字符串数组
+            function parseWordList(text) {
+                return text.split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(word => word.length > 0);
+            }
+
+            // 更新统计显示
+            function updateStats() {
+                const total = allWords.length + reviewWords.length + deletedCount;
+                statTotal.textContent = totalInitial || total;
+                statDeleted.textContent = deletedCount;
+                statReview.textContent = reviewWords.length;
+            }
+
+            // 更新进度显示
+            function updateProgress() {
+                const total = allWords.length + reviewWords.length + deletedCount;
+                const current = total - allWords.length - reviewWords.length;
+                progressText.textContent = `${current} / ${total}`;
+                roundTag.textContent = `▶ ROUND ${round}`;
+                wordCounter.textContent = `— 剩余 ${allWords.length} 个 —`;
+            }
+
+            // 显示单词
+            function showWord() {
+                if (allWords.length === 0) {
+                    if (reviewWords.length > 0) {
+                        // 新一轮复习：将 reviewWords 复制到 allWords，并清空 reviewWords
+                        allWords = reviewWords.map(item => ({ ...item }));
+                        reviewWords = [];
+                        currentIndex = 0;
+                        round++;
+                        shuffleArray(allWords);
+                        showWord();
+                        return;
+                    } else {
+                        // 全部完成！
+                        showComplete();
+                        return;
+                    }
+                }
+
+                if (currentIndex >= allWords.length) {
+                    currentIndex = 0;
+                }
+
+                const wordObj = allWords[currentIndex];
+                wordMain.textContent = wordObj.word;
+
+                playAppearSound();
+
+                wordMain.classList.remove('glitch');
+                void wordMain.offsetWidth;
+                wordMain.classList.add('glitch');
+                setTimeout(() => {
+                    wordMain.classList.remove('glitch');
+                }, 400);
+
+                updateProgress();
+                updateStats();
+
+                if (round === 1) {
+                    roundLabel.textContent = '◆ 第一轮学习';
+                } else {
+                    roundLabel.textContent = `◆ 第 ${round} 轮复习 · 记忆深化`;
+                }
+
+                wordDisplay.classList.add('active');
+                actions.classList.add('active');
+                stats.classList.add('active');
+                completeScreen.classList.remove('active');
+                uploadArea.style.display = 'none';
+
+                isProcessing = false;
+            }
+
+            // 打乱数组
+            function shuffleArray(arr) {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            // ===== 操作 =====
+
+            // 保留：增加错误计数，并放入 reviewWords
+            function handleKeep() {
+                if (isProcessing || isComplete) return;
+                if (allWords.length === 0) return;
+
+                isProcessing = true;
+                const wordObj = allWords[currentIndex];
+                // 增加错误次数
+                wordObj.errors = (wordObj.errors || 0) + 1;
+                // 加入复习列表
+                reviewWords.push({ ...wordObj });
+                // 从当前列表移除
+                allWords.splice(currentIndex, 1);
+
+                if (currentIndex >= allWords.length) {
+                    currentIndex = 0;
+                }
+
+                btnKeep.style.transform = 'scale(0.85)';
+                setTimeout(() => { btnKeep.style.transform = ''; }, 150);
+
+                showWord();
+            }
+
+            // 删除：直接丢弃，不计错误
+            function handleDelete() {
+                if (isProcessing || isComplete) return;
+                if (allWords.length === 0) return;
+
+                isProcessing = true;
+                allWords.splice(currentIndex, 1);
+                deletedCount++;
+
+                if (currentIndex >= allWords.length) {
+                    currentIndex = 0;
+                }
+
+                btnDelete.style.transform = 'scale(0.85)';
+                setTimeout(() => { btnDelete.style.transform = ''; }, 150);
+
+                showWord();
+            }
+
+            // ===== 完成界面 + 弹出错误统计 =====
+
+            function showComplete() {
+                isComplete = true;
+                wordDisplay.classList.remove('active');
+                actions.classList.remove('active');
+                stats.classList.remove('active');
+                completeScreen.classList.add('active');
+                uploadArea.style.display = 'none';
+
+                finalTotal.textContent = totalInitial || (deletedCount + reviewWords.length);
+                finalKept.textContent = deletedCount;
+                finalRounds.textContent = round;
+
+                // 统计所有单词的错误次数（包括已删除和保留的）
+                // 但已删除的单词我们不再追踪，我们只追踪所有曾经出现过的单词。
+                // 由于我们只在保留时增加错误计数，且保留的单词会进入reviewWords，最终全部完成时，reviewWords为空，allWords为空。
+                // 但被删除的单词我们丢失了它的错误计数，为了准确，我们需要在删除时也记录其错误次数？但需求是“错了两次以上”指保留次数。
+                // 根据设计，保留即表示答错。所以我们只需统计所有被保留过的单词及其错误次数（即保留次数）。
+                // 但保留的单词可能被多次保留，每次保留都会增加错误计数。我们可以从reviewWords历史中收集，但更简单：在每次保留时，我们将单词对象存入一个全局Map。
+                // 但由于我们已经把所有保留过的单词最终放入了reviewWords，而全部完成时reviewWords为空（被转移到了allWords再被消耗），但错误次数保留在对象中，最终allWords为空，reviewWords为空，所有对象都被消耗。
+                // 所以我们需要在全部完成时，从我们自己的记录中收集。更好的办法是在每次保留时，将单词及其错误计数保存到一个单独的数组（或者使用一个Map）。
+                // 我们重构：使用一个全局 Map 记录所有出现过的单词及其错误次数。
+                // 但为了保持简单，我们可以在每次保留时，将单词记录到一个集合中，最终展示时从集合中提取。
+                // 更稳健：在保留时，将单词存入一个全局对象，并在完成时遍历。
+                // 我们在最外层增加一个 errorsMap。
+
+                // 由于我们在保留时已经增加了wordObj.errors，且wordObj被复制到reviewWords，但最终reviewWords被清空，所有对象最终被丢弃。
+                // 所以我们需要在保留时同步记录到一个持久化的Map中。
+                // 我们增加一个全局 Map: errorTracker
+                // 在保留时，更新 errorTracker
+                // 在全部完成时，从 errorTracker 中生成列表。
+
+                // 但更简单：我们直接在保留时将单词和错误次数存入一个数组，但可能重复。
+                // 我们用Map存储单词->错误次数。
+                // 我们在 handleKeep 中更新 errorTracker。
+                // 然后在 showComplete 中构建列表。
+
+                // 修改：在全局增加 errorTracker
+                // 并在 handleKeep 中更新。
+
+                // 但为了兼容已有逻辑，我们重构一下：在 handleKeep 中，使用 errorTracker.set(word, errors)
+                // 展示时遍历。
+
+                // 我们已在外部定义了 errorTracker，现在在 handleKeep 中使用。
+
+                // 构建错误列表
+                buildErrorList();
+
+                // 显示模态框
+                errorModal.classList.add('active');
+            }
+
+            // ===== 错误统计 =====
+
+            // 全局错误追踪器：单词 -> 错误次数
+            const errorTracker = new Map();
+
+            // 在保留时，更新 tracker (在 handleKeep 中调用)
+            // 同时，我们需要在重置时清空。
+
+            // 构建错误列表并填充模态框
+            function buildErrorList() {
+                // 从 errorTracker 中筛选
+                const entries = Array.from(errorTracker.entries());
+                // 过滤出错误次数 >=2
+                const twoPlus = entries.filter(([word, errors]) => errors >= 2).sort((a, b) => b[1] - a[1]);
+                const threePlus = entries.filter(([word, errors]) => errors >= 3).sort((a, b) => b[1] - a[1]);
+
+                // 填充列表
+                listTwo.innerHTML = '';
+                if (twoPlus.length === 0) {
+                    listTwo.innerHTML = '<div class="empty-message">✨ 没有单词错误达到2次</div>';
+                } else {
+                    twoPlus.forEach(([word, errors]) => {
+                        const span = document.createElement('span');
+                        span.className = 'word-item';
+                        span.textContent = word;
+                        const countSpan = document.createElement('span');
+                        countSpan.className = 'error-count';
+                        countSpan.textContent = `×${errors}`;
+                        span.appendChild(countSpan);
+                        listTwo.appendChild(span);
+                    });
+                }
+
+                listThree.innerHTML = '';
+                if (threePlus.length === 0) {
+                    listThree.innerHTML = '<div class="empty-message">✨ 没有单词错误达到3次</div>';
+                } else {
+                    threePlus.forEach(([word, errors]) => {
+                        const span = document.createElement('span');
+                        span.className = 'word-item';
+                        span.textContent = word;
+                        const countSpan = document.createElement('span');
+                        countSpan.className = 'error-count';
+                        countSpan.textContent = `×${errors}`;
+                        span.appendChild(countSpan);
+                        listThree.appendChild(span);
+                    });
+                }
+
+                countTwo.textContent = twoPlus.length;
+                countThree.textContent = threePlus.length;
+            }
+
+            // 重置错误追踪
+            function resetErrorTracker() {
+                errorTracker.clear();
+            }
+
+            // 修改 handleKeep 以更新 tracker
+            // 我们重写 handleKeep 函数，增加 tracker 更新
+
+            // ===== 重写 handleKeep =====
+            // 原函数被替换，使用新函数
+            // 我们重新定义 handleKeep
+
+            // 保存原函数引用，覆盖
+            const originalHandleKeep = handleKeep;
+            handleKeep = function() {
+                if (isProcessing || isComplete) return;
+                if (allWords.length === 0) return;
+
+                isProcessing = true;
+                const wordObj = allWords[currentIndex];
+                // 增加错误计数
+                wordObj.errors = (wordObj.errors || 0) + 1;
+                // 更新全局 tracker
+                const word = wordObj.word;
+                const currentErrors = wordObj.errors;
+                errorTracker.set(word, currentErrors);
+
+                // 加入复习列表
+                reviewWords.push({ ...wordObj });
+                // 从当前列表移除
+                allWords.splice(currentIndex, 1);
+
+                if (currentIndex >= allWords.length) {
+                    currentIndex = 0;
+                }
+
+                btnKeep.style.transform = 'scale(0.85)';
+                setTimeout(() => { btnKeep.style.transform = ''; }, 150);
+
+                showWord();
+            };
+
+            // 同时，在删除时，我们也可以记录一次错误？但需求是保留才算错，所以删除不算。
+
+            // ===== 重置函数 =====
+
+            function resetAll() {
+                allWords = [];
+                reviewWords = [];
+                currentIndex = 0;
+                totalInitial = 0;
+                deletedCount = 0;
+                round = 1;
+                isComplete = false;
+                isProcessing = false;
+                resetErrorTracker();
+
+                wordDisplay.classList.remove('active');
+                actions.classList.remove('active');
+                stats.classList.remove('active');
+                completeScreen.classList.remove('active');
+                uploadArea.style.display = 'block';
+                fileName.textContent = '';
+                fileInput.value = '';
+                wordMain.textContent = '⚡';
+                progressText.textContent = '0 / 0';
+                roundTag.textContent = '▶ ROUND 1';
+                statTotal.textContent = '0';
+                statDeleted.textContent = '0';
+                statReview.textContent = '0';
+                wordCounter.textContent = '— 等待上传 —';
+                roundLabel.textContent = '◆ 准备就绪';
+
+                document.querySelector('.upload-area .icon').textContent = '📂';
+                document.querySelector('.upload-area h2').textContent = 'UPLOAD WORD LIST';
+                document.querySelector('.upload-area p').textContent = '拖拽或点击上传 .txt 文件 · 每行一个单词';
+                loader.classList.remove('active');
+
+                // 关闭模态框
+                errorModal.classList.remove('active');
+            }
+
+            // ===== 文件上传处理 =====
+
+            function handleFile(file) {
+                const reader = new FileReader();
+                loader.classList.add('active');
+                document.querySelector('.upload-area h2').textContent = '解析中...';
+
+                reader.onload = function(e) {
+                    try {
+                        const text = e.target.result;
+                        const words = parseWordList(text);
+                        loader.classList.remove('active');
+
+                        if (words.length === 0) {
+                            document.querySelector('.upload-area h2').textContent = '⚠️ 未找到有效单词';
+                            document.querySelector('.upload-area p').textContent = '请确保每行一个单词';
+                            fileName.textContent = '';
+                            return;
+                        }
+
+                        // 初始化：将单词转为对象数组
+                        allWords = words.map(word => ({ word, errors: 0 }));
+                        totalInitial = words.length;
+                        deletedCount = 0;
+                        reviewWords = [];
+                        currentIndex = 0;
+                        round = 1;
+                        isComplete = false;
+                        isProcessing = false;
+                        resetErrorTracker();
+
+                        shuffleArray(allWords);
+
+                        fileName.textContent = `✅ 已加载 ${words.length} 个单词 · ${file.name}`;
+
+                        document.querySelector('.upload-area .icon').textContent = '🚀';
+                        document.querySelector('.upload-area h2').textContent = '加载完成！';
+                        document.querySelector('.upload-area p').textContent = '点击 "保留" 或 "删除" 开始学习';
+
+                        setTimeout(() => {
+                            showWord();
+                        }, 400);
+
+                    } catch (err) {
+                        loader.classList.remove('active');
+                        document.querySelector('.upload-area h2').textContent = '❌ 解析失败';
+                        document.querySelector('.upload-area p').textContent = err.message || '请检查文件格式';
+                        fileName.textContent = '';
+                    }
+                };
+
+                reader.onerror = function() {
+                    loader.classList.remove('active');
+                    document.querySelector('.upload-area h2').textContent = '❌ 读取失败';
+                    document.querySelector('.upload-area p').textContent = '请重试或检查文件权限';
+                };
+
+                reader.readAsText(file, 'UTF-8');
+            }
+
+            // ===== 事件绑定 =====
+
+            uploadArea.addEventListener('click', function(e) {
+                if (e.target === fileInput) return;
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function(e) {
+                if (this.files && this.files.length > 0) {
+                    handleFile(this.files[0]);
+                }
+                this.value = '';
+            });
+
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (ext === 'txt' || ext === 'csv') {
+                        handleFile(file);
+                    } else {
+                        document.querySelector('.upload-area h2').textContent = '⚠️ 请上传 .txt 或 .csv 文件';
+                        document.querySelector('.upload-area p').textContent = '当前文件: ' + file.name;
+                        fileName.textContent = '';
+                    }
+                }
+            });
+
+            btnKeep.addEventListener('click', handleKeep);
+            btnDelete.addEventListener('click', handleDelete);
+
+            // 模态框关闭
+            modalClose.addEventListener('click', function() {
+                errorModal.classList.remove('active');
+            });
+            errorModal.addEventListener('click', function(e) {
+                if (e.target === errorModal) {
+                    errorModal.classList.remove('active');
+                }
+            });
+
+            // 键盘快捷键
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT') return;
+
+                if (isComplete) {
+                    if (e.key === 'Enter' || e.key === 'r') {
+                        btnRestart.click();
+                    }
+                    // 按 ESC 关闭模态框
+                    if (e.key === 'Escape' && errorModal.classList.contains('active')) {
+                        errorModal.classList.remove('active');
+                    }
+                    return;
+                }
+
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' || e.key === 'j' || e.key === 'J') {
+                    e.preventDefault();
+                    handleKeep();
+                }
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D' || e.key === 'k' || e.key === 'K') {
+                    e.preventDefault();
+                    handleDelete();
+                }
+                if (e.key === ' ' || e.key === 'Space') {
+                    e.preventDefault();
+                    wordMain.classList.remove('glitch');
+                    void wordMain.offsetWidth;
+                    wordMain.classList.add('glitch');
+                    setTimeout(() => {
+                        wordMain.classList.remove('glitch');
+                    }, 300);
+                }
+            });
+
+            btnRestart.addEventListener('click', function() {
+                resetAll();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // ===== 初始化 =====
+            resetAll();
+
+            console.log('⚡ 霓虹单词训练器 v2.0 (错误统计功能)');
+            console.log('📖 快捷键: ← 保留 | → 删除 | Space 故障特效 | ESC 关闭弹窗');
+
+            window.__app = {
+                allWords,
+                reviewWords,
+                currentIndex,
+                round,
+                deletedCount,
+                totalInitial,
+                resetAll,
+                handleKeep,
+                handleDelete,
+                errorTracker
+            };
+
+        })();
+    </script>
+
+</body>
+</html>
